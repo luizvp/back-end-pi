@@ -9,6 +9,20 @@ Route::get('/pacientes', function (Request $request) {
     return DB::table('pacientes')->get();
 });
 
+Route::get('/pacientes/{id}', function ($id) {
+    try {
+        $paciente = DB::table('pacientes')->where('id', $id)->first();
+
+        if ($paciente) {
+            return response()->json(['paciente' => $paciente], 200);
+        } else {
+            return response()->json(['message' => 'Paciente não encontrado'], 404);
+        }
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Erro ao buscar paciente', 'error' => $e->getMessage()], 500);
+    }
+});
+
 Route::post('/pacientes', function (Request $request) {
     try {
         DB::table('pacientes')->insert($request->FormData);
@@ -18,6 +32,29 @@ Route::post('/pacientes', function (Request $request) {
         return response()->json(['message' => 'Erro de validação', 'errors' => $e->errors()], 400);
     } catch (\Exception $e) {
         return response()->json(['message' => 'Erro ao criar paciente', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::put('/pacientes/{id}', function (Request $request, $id) {
+    try {
+        // Update the patient record
+        DB::table('pacientes')->where('id', $id)->update($request->FormData);
+
+        return response()->json(['message' => 'Paciente atualizado com sucesso'], 200);
+    } catch (ValidationException $e) {
+        return response()->json(['message' => 'Erro de validação', 'errors' => $e->errors()], 400);
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Erro ao atualizar paciente', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::delete('/pacientes/{id}', function ($id) {
+    try {
+        DB::table('pacientes')->where('id', $id)->delete();
+
+        return response()->json(['message' => 'Paciente deletado com sucesso'], 200);
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Erro ao deletar paciente', 'error' => $e->getMessage()], 500);
     }
 });
 
@@ -33,8 +70,22 @@ return  DB::table('prontuarios')
                 });
         })
         ->select('prontuarios.*', 'pacientes.nome as nome_paciente', DB::raw('(SELECT count(*) FROM evolucao_prontuario WHERE evolucao_prontuario.id_prontuario = prontuarios.id) as quantidade_evolucoes'))
-        ->groupBy('prontuarios.id', 'pacientes.nome')
+        ->groupBy('prontuarios.id', 'prontuarios.id_paciente', 'pacientes.nome')
         ->get();
+});
+
+Route::get('/prontuarios/{id}', function ($id) {
+    try {
+        $paciente = DB::table('prontuarios')->where('id', $id)->first();
+
+        if ($paciente) {
+            return response()->json(['prontuario' => $paciente], 200);
+        } else {
+            return response()->json(['message' => 'Prontuario não encontrado'], 404);
+        }
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Erro ao buscar prontuario', 'error' => $e->getMessage()], 500);
+    }
 });
 
 Route::post('/prontuarios', function (Request $request) {
@@ -50,6 +101,34 @@ Route::post('/prontuarios', function (Request $request) {
         return response()->json(['message' => 'Erro ao criar prontuario', 'error' => $e->getMessage()], 500);
     }
 });
+
+Route::put('/prontuarios/{id}', function (Request $request, $id) {
+    try {
+        // Update the patient record
+        DB::table('prontuarios')->where('id', $id)->update($request->FormData);
+
+        return response()->json(['message' => 'Prontuario atualizado com sucesso'], 200);
+    } catch (ValidationException $e) {
+        return response()->json(['message' => 'Erro de validação', 'errors' => $e->errors()], 400);
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Erro ao atualizar prontuario', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::get('/evolucao/{id}', function ($id) {
+    try {
+        $evolucao = DB::table('evolucao_prontuario')->where('id_prontuario', $id)->get();
+
+        if ($evolucao) {
+            return response()->json(['evolucao' => $evolucao], 200);
+        } else {
+            return response()->json(['message' => 'evolucao não encontrado'], 404);
+        }
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Erro ao buscar evolucao', 'error' => $e->getMessage()], 500);
+    }
+});
+
 
 Route::post('/evolucao', function (Request $request) {
     try {

@@ -2,7 +2,7 @@
     "version": 2,
       "framework": null,
     "functions": {
-        "api/index.php": { "runtime": "vercel-php@0.6.0" }
+        "api/index.php": { "runtime": "vercel-php@0.6.2" }
     },
     "routes": [{
         "src": "/(.*)",
@@ -22,6 +22,13 @@
  
         "CACHE_DRIVER": "array",
         "LOG_CHANNEL": "stderr",
-        "SESSION_DRIVER": "cookie"
+        "SESSION_DRIVER": "cookie",
+
+        "DB_CONNECTION": "mysql",
+        "DB_HOST": "sql10.freesqldatabase.com",
+        "DB_PORT": "3306",
+        "DB_DATABASE": "sql10706237",
+        "DB_USERNAME": "sql10706237",
+        "DB_PASSWORD": "lPr4l3Nn5l"
     }
 }
