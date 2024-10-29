@@ -90,8 +90,6 @@ Route::get('/prontuarios/{id}', function ($id) {
 
 Route::post('/prontuarios', function (Request $request) {
     try {
-
-
         DB::table('prontuarios')->insert($request->FormData);
 
         return response()->json(['message' => 'Prontuario criado com sucesso'], 201);
@@ -196,6 +194,8 @@ Route::post('/agendamentos', function (Request $request) {
 });
 
 
+
+
 Route::get('/home', function (Request $request) {
     try {
         $proxAgendamento = DB::table('agendamentos')
@@ -227,3 +227,85 @@ Route::get('/home', function (Request $request) {
         return response()->json(['message' => 'Erro ao criar agendamento', 'error' => $e->getMessage()], 500);
     }
 });
+
+Route::post('/usuarios/login', function (Request $request) {
+    try {
+        $user = DB::table('usuarios')->where('usuario', $request->usuario)->first();
+
+        if ($user && $request->senha === $user->senha) {
+            return response()->json(['message' => 'Login successful', 'user' => $user], 200);
+        } else {
+            return response()->json(['message' => 'Invalid credentials'], 401);
+        }
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Error during login', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::post('/usuarios', function (Request $request) {
+    try {
+        $request->validate([
+            'usuario' => 'required|unique:usuarios,usuario',
+            'senha' => 'required|min:6',
+            'admin' => 'required|boolean',
+        ]);
+
+        DB::table('usuarios')->insert([
+            'usuario' => $request->usuario,
+            'senha' => $request->senha,
+            'admin' => $request->admin,
+        ]);
+
+        return response()->json(['message' => 'User created successfully'], 201);
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json(['message' => 'Validation error', 'errors' => $e->errors()], 400);
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Error creating user', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::get('/usuarios', function (Request $request) {
+    return DB::table('usuarios')->get();
+});
+
+Route::get('/usuarios/{id}', function ($id) {
+    try {
+        $usuario = DB::table('usuarios')->where('id', $id)->first();
+
+        if ($usuario) {
+            return response()->json(['usuario' => $usuario], 200);
+        } else {
+            return response()->json(['message' => 'Usuario não encontrado'], 404);
+        }
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Erro ao buscar usuario', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::post('/usuarios', function (Request $request) {
+    try {
+        DB::table('usuarios')->insert($request->FormData);
+
+        return response()->json(['message' => 'Usuario criado com sucesso'], 201);
+    } catch (ValidationException $e) {
+        return response()->json(['message' => 'Erro de validação', 'errors' => $e->errors()], 400);
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Erro ao criar usuario', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::put('/usuarios/{id}', function (Request $request, $id) {
+    try {
+        // Update the patient record
+        DB::table('usuarios')->where('id', $id)->update($request->FormData);
+
+        return response()->json(['message' => 'Usuario atualizado com sucesso'], 200);
+    } catch (ValidationException $e) {
+        return response()->json(['message' => 'Erro de validação', 'errors' => $e->errors()], 400);
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Erro ao atualizar usuario', 'error' => $e->getMessage()], 500);
+    }
+});
+
+
+
