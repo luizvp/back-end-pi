@@ -141,10 +141,36 @@ Route::post('/evolucao', function (Request $request) {
 });
 
 Route::get('/agendamentos', function (Request $request) {
-    return DB::table('agendamentos')
+    // Obtendo parâmetros de filtro
+    $pacienteId = $request->query('paciente_id');
+    $statusFilter = $request->query('status', 'Todos'); // Default é "Todos" se não houver valor
+
+    // Log para verificar os parâmetros
+    
+
+    $query = DB::table('agendamentos')
         ->join('pacientes', 'agendamentos.id_paciente', '=', 'pacientes.id')
-        ->select('agendamentos.*', 'pacientes.nome as nome_paciente', DB::raw('CASE WHEN CONCAT(agendamentos.data, " ", agendamentos.hora) <= NOW() THEN "Realizado" ELSE "Em aberto" END AS status'))
-        ->get();
+        ->select(
+            'agendamentos.*',
+            'pacientes.nome as nome_paciente',
+            DB::raw('CASE WHEN CONCAT(agendamentos.data, " ", agendamentos.hora) <= NOW() THEN "Realizado" ELSE "Em aberto" END AS status')
+        );
+
+    // Aplicando filtro de paciente, se presente
+    if ($pacienteId) {
+        $query->where('agendamentos.id_paciente', $pacienteId);
+    }
+
+    // Aplicando filtro de status, se necessário
+    if ($statusFilter !== 'Todos') {
+        $query->having('status', '=', $statusFilter);
+    }
+
+    // Obtenção do resultado
+    $result = $query->get();
+     // Log do resultado
+
+    return $result;
 });
 
 Route::get('/agendamentos/proximo', function (Request $request) {
