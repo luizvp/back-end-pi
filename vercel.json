@@ -32,10 +32,10 @@
         "SESSION_DRIVER": "cookie",
 
         "DB_CONNECTION": "mysql",
-        "DB_HOST": "sql10.freesqldatabase.com",
+        "DB_HOST": "193.203.175.150",
         "DB_PORT": "3306",
-        "DB_DATABASE": "sql10706237",
-        "DB_USERNAME": "sql10706237",
-        "DB_PASSWORD": "lPr4l3Nn5l"
+        "DB_DATABASE": "u298219910_clinicapi",
+        "DB_USERNAME": "u298219910_root",
+        "DB_PASSWORD": "Wanrltw123?"
     }
 }
