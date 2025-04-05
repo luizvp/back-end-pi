@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -13,11 +12,19 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Call seeders in the correct order to handle dependencies
+        $this->call([
+            // First seed tables without foreign key dependencies
+            PacientesSeeder::class,
+            UsuariosSeeder::class,
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            // Then seed tables with foreign key dependencies
+            ProntuariosSeeder::class,
+            AgendamentosSeeder::class,
+
+            // Finally seed tables that depend on multiple other tables
+            EvolucaoProntuarioSeeder::class,
+            PagamentosSeeder::class,
         ]);
     }
 }
