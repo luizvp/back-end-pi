@@ -24,3 +24,4 @@ require __DIR__ . '/api/usuarios.php';
 require __DIR__ . '/api/home.php';
 require __DIR__ . '/api/relatorios.php';
 require __DIR__ . '/api/dashboard.php';
+require __DIR__ . '/api/terminal.php';
