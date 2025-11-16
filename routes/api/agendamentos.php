@@ -4,8 +4,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use App\Models\Agendamento;
 
 Route::prefix('agendamentos')->group(function () {
+    // Listar agendamentos
     Route::get('/', function (Request $request) {
         $pacienteId = $request->query('paciente_id');
         $statusFilter = $request->query('status', 'Todos');
@@ -21,16 +23,16 @@ Route::prefix('agendamentos')->group(function () {
                 'pagamentos.forma_pagamento',
                 'pagamentos.status_pagamento',
                 'pagamentos.data_pagamento',
-                'pagamentos.observacao',
-                DB::raw('CASE WHEN CONCAT(agendamentos.data, " ", agendamentos.hora) <= NOW() THEN "Realizado" ELSE "Em aberto" END AS status')
+                'pagamentos.observacao'
             );
 
         if ($pacienteId) $query->where('agendamentos.id_paciente', $pacienteId);
-        if ($statusFilter !== 'Todos') $query->having('status', '=', $statusFilter);
+        if ($statusFilter !== 'Todos') $query->where('agendamentos.status', $statusFilter);
 
         return $query->get();
     });
 
+    // Próximo agendamento
     Route::get('/proximo', function (Request $request) {
         $agendamento = DB::table('agendamentos')
             ->join('pacientes', 'agendamentos.id_paciente', '=', 'pacientes.id')
@@ -50,11 +52,11 @@ Route::prefix('agendamentos')->group(function () {
         return $agendamento;
     });
 
+    // Agendamentos de hoje
     Route::get('/hoje', function (Request $request) {
         $agendamentos = DB::table('agendamentos')
             ->join('pacientes', 'agendamentos.id_paciente', '=', 'pacientes.id')
-            ->select('agendamentos.*', 'pacientes.nome as nome_paciente',
-                DB::raw('CASE WHEN CONCAT(agendamentos.data, " ", agendamentos.hora) <= NOW() THEN "Realizado" ELSE "Em aberto" END AS status'))
+            ->select('agendamentos.*', 'pacientes.nome as nome_paciente')
             ->whereDate('agendamentos.data', '=', DB::raw('CURDATE()'))
             ->orderByRaw('agendamentos.hora ASC')
             ->get();
@@ -62,33 +64,186 @@ Route::prefix('agendamentos')->group(function () {
         return $agendamentos;
     });
 
+    // Atualizar status automaticamente (para agendamentos vencidos)
+    Route::post('/auto-update-status', function () {
+        try {
+            $agendamentosVencidos = Agendamento::where('alterado_manualmente', false)
+                ->where('status', 'agendado')
+                ->whereRaw('CONCAT(data, " ", IFNULL(hora, "00:00:00")) < NOW()')
+                ->get();
+
+            $atualizados = 0;
+            foreach ($agendamentosVencidos as $agendamento) {
+                if ($agendamento->marcarComoRealizadoAutomaticamente()) {
+                    $atualizados++;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$atualizados} agendamentos atualizados automaticamente para 'realizado'",
+                'atualizados' => $atualizados
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao atualizar status automaticamente',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+
+    // Alterar status manualmente
+    Route::put('/{id}/status', function (Request $request, $id) {
+        try {
+            $agendamento = Agendamento::findOrFail($id);
+            $novoStatus = $request->input('status');
+            $observacoes = $request->input('observacoes');
+            $usuario = $request->input('usuario', 'sistema');
+
+            $resultado = $agendamento->alterarStatusManualmente($novoStatus, $observacoes, $usuario);
+
+            if ($resultado) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Status alterado com sucesso',
+                    'agendamento' => $agendamento->fresh()
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erro ao alterar status'
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao alterar status',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+
+
+    // Marcar como realizado
+    Route::put('/{id}/realizado', function (Request $request, $id) {
+        try {
+            $agendamento = Agendamento::findOrFail($id);
+            $observacoes = $request->input('observacoes');
+            $usuario = $request->input('usuario', 'sistema');
+
+            $resultado = $agendamento->marcarComoRealizado($observacoes, $usuario);
+
+            if ($resultado) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Agendamento marcado como realizado',
+                    'agendamento' => $agendamento->fresh()
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Falha ao marcar como realizado'
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao marcar como realizado',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+
+    // Marcar falta
+    Route::put('/{id}/faltou', function (Request $request, $id) {
+        try {
+            $agendamento = Agendamento::findOrFail($id);
+            $observacoes = $request->input('observacoes', 'Paciente não compareceu');
+            $usuario = $request->input('usuario', 'sistema');
+
+            $resultado = $agendamento->marcarComoFaltou($observacoes, $usuario);
+
+            if ($resultado) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Falta registrada com sucesso',
+                    'agendamento' => $agendamento->fresh()
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Falha ao registrar falta'
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao registrar falta',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+
+    // Cancelar agendamento
+    Route::put('/{id}/cancelar', function (Request $request, $id) {
+        try {
+            $agendamento = Agendamento::findOrFail($id);
+            $motivo = $request->input('motivo', 'Agendamento cancelado');
+            $usuario = $request->input('usuario', 'sistema');
+
+            $resultado = $agendamento->cancelar($motivo, $usuario);
+
+            if ($resultado) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Agendamento cancelado com sucesso',
+                    'agendamento' => $agendamento->fresh()
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Falha ao cancelar agendamento'
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao cancelar agendamento',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+
+    // Criar agendamento
     Route::post('/', function (Request $request) {
         try {
-            // Begin transaction to ensure both operations succeed or fail together
             DB::beginTransaction();
 
-            // Insert the appointment and get its ID
-            $agendamentoId = DB::table('agendamentos')->insertGetId($request->all());
+            // Criar agendamento com status inicial
+            $dadosAgendamento = $request->all();
+            $dadosAgendamento['status'] = 'agendado';
+            $dadosAgendamento['alterado_manualmente'] = false;
 
-            // Get the appointment details to create a meaningful payment description
+            $agendamentoId = DB::table('agendamentos')->insertGetId($dadosAgendamento);
+
+            // Criar pagamento pendente automaticamente
             $agendamento = DB::table('agendamentos')->where('id', $agendamentoId)->first();
             $pacienteNome = DB::table('pacientes')->where('id', $agendamento->id_paciente)->value('nome');
 
-            // Create a payment record for this appointment
             DB::table('pagamentos')->insert([
                 'agendamento_id' => $agendamentoId,
                 'paciente_id' => $agendamento->id_paciente,
                 'descricao' => "Consulta agendada para {$pacienteNome} em {$agendamento->data} às {$agendamento->hora}",
                 'tipo' => 'consulta',
-                'valor_consulta' => 100.00, // Default value
+                'valor_consulta' => 100.00,
                 'status_pagamento' => 'pendente'
             ]);
 
-            // Commit the transaction
             DB::commit();
 
             return response()->json([
-                'message' => 'Agendamento criado com sucesso. Um pagamento pendente foi gerado automaticamente.',
+                'message' => 'Agendamento criado com sucesso',
                 'agendamento_id' => $agendamentoId
             ], 201);
         } catch (ValidationException $e) {
@@ -100,9 +255,15 @@ Route::prefix('agendamentos')->group(function () {
         }
     });
 
+    // Atualizar agendamento
     Route::put('/{id}', function (Request $request, $id) {
         try {
-            DB::table('agendamentos')->where('id', $id)->update($request->all());
+            $dados = $request->all();
+
+            // Remover campos que não devem ser alterados diretamente
+            unset($dados['status'], $dados['alterado_manualmente'], $dados['data_status_alterado']);
+
+            DB::table('agendamentos')->where('id', $id)->update($dados);
 
             return response()->json(['message' => 'Agendamento atualizado com sucesso'], 200);
         } catch (ValidationException $e) {
@@ -112,6 +273,7 @@ Route::prefix('agendamentos')->group(function () {
         }
     });
 
+    // Deletar agendamento
     Route::delete('/{id}', function ($id) {
         try {
             DB::table('agendamentos')->where('id', $id)->delete();

@@ -17,6 +17,8 @@ class DatabaseSeeder extends Seeder
             // First seed tables without foreign key dependencies
             PacientesSeeder::class,
             UsuariosSeeder::class,
+            DiagnosticosPadronizadosSeeder::class,
+            EquipamentosSeeder::class,
 
             // Then seed tables with foreign key dependencies
             ProntuariosSeeder::class,

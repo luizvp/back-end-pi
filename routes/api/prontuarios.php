@@ -9,6 +9,7 @@ Route::prefix('prontuarios')->group(function () {
     Route::get('/', function (Request $request) {
         return DB::table('prontuarios')
             ->join('pacientes', 'prontuarios.id_paciente', '=', 'pacientes.id')
+            ->leftJoin('diagnosticos_padronizados', 'prontuarios.diagnostico_cid_id', '=', 'diagnosticos_padronizados.id')
             ->leftJoin('evolucao_prontuario', function ($join) {
                 $join->on('prontuarios.id', '=', 'evolucao_prontuario.id_prontuario')
                     ->where('evolucao_prontuario.data_atendimento', function ($query) {
@@ -17,10 +18,46 @@ Route::prefix('prontuarios')->group(function () {
                             ->whereColumn('prontuarios.id', '=', 'evolucao_prontuario.id_prontuario');
                     });
             })
-            ->select('prontuarios.*', 'pacientes.nome as nome_paciente',
-                DB::raw('(SELECT count(*) FROM evolucao_prontuario WHERE evolucao_prontuario.id_prontuario = prontuarios.id) as quantidade_evolucoes'))
-            ->groupBy('prontuarios.id', 'prontuarios.id_paciente', 'pacientes.nome')
-            ->get();
+            ->leftJoin('tratamentos', 'prontuarios.id', '=', 'tratamentos.prontuario_id')
+            ->select(
+                'prontuarios.*',
+                'pacientes.nome as nome_paciente',
+                'diagnosticos_padronizados.codigo_cid',
+                'diagnosticos_padronizados.descricao as diagnostico_descricao',
+                'tratamentos.status as status_tratamento',
+                'tratamentos.data_alta_real',
+                'tratamentos.motivo_alta',
+                DB::raw('(SELECT count(*) FROM evolucao_prontuario WHERE evolucao_prontuario.id_prontuario = prontuarios.id) as quantidade_evolucoes')
+            )
+            ->groupBy(
+                'prontuarios.id',
+                'prontuarios.id_paciente',
+                'pacientes.nome',
+                'diagnosticos_padronizados.codigo_cid',
+                'diagnosticos_padronizados.descricao',
+                'tratamentos.status',
+                'tratamentos.data_alta_real',
+                'tratamentos.motivo_alta'
+            )
+            ->get()
+            ->map(function ($prontuario) {
+                // Estruturar dados para corresponder ao que o frontend espera
+                $result = (array) $prontuario;
+
+                if ($prontuario->codigo_cid) {
+                    $result['diagnostico_padronizado'] = [
+                        'codigo_cid' => $prontuario->codigo_cid,
+                        'descricao' => $prontuario->diagnostico_descricao
+                    ];
+                } else {
+                    $result['diagnostico_padronizado'] = null;
+                }
+
+                // Remover campos duplicados
+                unset($result['codigo_cid'], $result['diagnostico_descricao']);
+
+                return $result;
+            });
     });
 
     Route::get('/{id}', function ($id) {
